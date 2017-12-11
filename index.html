@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>网页版扫雷</title>
+    <style type="text/css">
+        .mine-sweeper {
+            float: left;
+        }
+        .mine-sweeper .block {
+            background-image: url("imgs/bg.png");
+            background-size: 100%;
+            width: 25px;
+            height: 25px;
+            line-height: 25px;
+            text-align: center;
+            float: left;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .mine-sweeper .block.new {
+            clear: left;
+        }
+        .mine-sweeper .block.boom {
+            background-image: url("imgs/b.png");
+        }
+        .mine-sweeper .block.target {
+            background-image: url("imgs/t.png");
+        }
+        .mine-sweeper .block.doubt {
+            background-image: url("imgs/w.png");
+        }
+        .mine-sweeper .block.b0 {
+            background-image: none;
+            background-color: #eee;
+        }
+        .mine-sweeper .block.b1 {
+            color: #0433ff;
+        }
+        .mine-sweeper .block.b2 {
+            color: #00a000;
+        }
+        .mine-sweeper .block.b3 {
+            color: #ff2600;
+        }
+        .mine-sweeper .block.b4 {
+            color: #962092;
+        }
+        .mine-sweeper .block.b5 {
+            color: #ff7f2b;
+        }
+        .mine-sweeper .block.b6 {
+            color: #ff40ff;
+        }
+        .mine-sweeper .block.b6 {
+            color: #360336;
+        }
+    </style>
+</head>
+<body>
+    <form id="args">
+        行数：<input type="text" name="rows" placeholder="请输入行数" value="9"><br>
+        雷数：<input type="text" name="booms" placeholder="请输入雷数" value="10"><br>
+        <input type="submit" value="开始游戏">
+        <input type="reset" value="重置">
+    </form>
+
+    <div class="mine-sweeper">
+
+    </div>
+
+    <script type="text/javascript" src="jquery-2.2.4.js"></script>
+    <script type="text/javascript">
+        //1. 实现页面绘制
+        $(function(){
+            var $mineContainer = $('.mine-sweeper'); //游戏UI容器
+            var $argsForm = $('#args'); //参数表单
+            var rows = $argsForm[0].rows; //行数输入框
+            var booms = $argsForm[0].booms; //雷数输入框
+            $argsForm.on('submit', function () {
+                var rs = Number(rows.value);
+                var bs = Number(booms.value);
+                initUI(initMap(rs, bs)); //生成后台二维数组
+                return false;
+            });
+            //8: 未点击 .block
+            //9: 雷 未点击 .block 点击 .boom
+            //0~7: 已点击开，周围是对应的雷数
+            var map = []; //地图二维数组
+            var state = {
+                0: "block",
+                1: "target",
+                2: "doubt"
+            };
+            function initMap(rs, bs) {
+                map = [];
+                for(var i=0; i<rs; i++) {
+                    var row = [];
+                    for(var j=0; j<rs; j++) {
+                        row[j] = 8;
+                    }
+                    map.push(row);
+                }
+                // 使用随机算法实现雷在地图中随机分布
+                var rr, rc;
+                do {
+                    rr = Math.floor(Math.random() * rs);
+                    rc = Math.floor(Math.random() * rs);
+                    if(map[rr][rc] === 8) {
+                        map[rr][rc] = 9; //标记成雷
+                        bs--; //成功埋了一个雷
+                    }
+                } while (bs !== 0);
+                return map;
+            }
+
+            //初始化UI界面
+            function initUI(map) {
+                $mineContainer.empty();
+                var row;
+                map = map || [];
+                var $b;
+                for(var i=0; i<map.length; i++) {
+                    row = map[i] || [];
+                    for(var j=0; j<row.length;j++) {
+                        $b = $("<span flag=\"true\" row=\""+i+"\" col=\""+j+"\" class=\"block"+(j==0?" new":"")+"\"></span>");
+                        $b.data("state", 0); //0:默认 1:旗子 2:怀疑
+                        $mineContainer.append($b);
+                    }
+                }
+                return map;
+            }
+
+            function countBoom(row, col) {
+                var count = 0;
+                for(var i=row-1; i<row-1+3; i++) {
+                    for(var j=col-1; j<col-1+3; j++) {
+                        try {
+                            map[i][j];
+                        } catch (e) {
+                            continue;
+                        }
+                        if(map[i][j] == 9) {
+                            count++;
+                        }
+                    }
+                }
+                return count;
+            }
+
+            //只要在$mineContainer下面样式为block的元素被点击，都会触发(忽略dom)
+            $mineContainer.on('contextmenu', '.block', function () {
+                var r = Number($(this).attr("row"));
+                var c = Number($(this).attr('col'));
+                var v = map[r][c];
+                var s = $(this).data('state');
+                if($(this).attr('flag')) {
+                    s = ++s%3;
+                    $(this).data("state", s).removeClass("doubt target").addClass(state[s]);
+                }
+                return false;
+            }).on("click", ".block", function () {
+                var r = Number($(this).attr("row"));
+                var c = Number($(this).attr("col"));
+                var s = $(this).data('state');
+                var count;
+                if($(this).attr('flag') && s === 0) {
+                    $(this).removeAttr('flag');
+                    if(map[r][c] === 9) {
+                        $(this).addClass('boom');
+                        window.setTimeout(function () {
+                            alert('踩到雷了！');
+                            $argsForm.trigger('submit');
+                        },100)
+                    } else {
+                        count = countBoom(r, c);
+                        $(this).addClass("b" + count).text(count?count:"");
+                    }
+                }
+            });
+        });
+        // 2.实现游戏逻辑
+        // 3.优化游戏规则
+        // 4.代码重构
+    </script>
+
+</body>
+</html>
